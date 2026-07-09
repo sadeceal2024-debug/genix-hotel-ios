@@ -19,7 +19,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: "src/Otel PMS.xcworkspace"
         XCODE_SCHEME: "Otel PMS"
-        APP_STORE_APPLE_ID: "0000000000"   # TODO: paste the numeric Apple ID after creating the app in App Store Connect
+        APP_STORE_APPLE_ID: "6789248869"
       xcode: latest
       cocoapods: default
 
