@@ -1,0 +1,97 @@
+# ============================================================
+#  GENIX HOTEL iOS — Codemagic CI/CD (build without a Mac + App Store upload)
+# (see repo README for setup notes)
+# (see repo README for setup notes)
+#  Automatic code signing = ASC API key ile → MacinCloud SSL engelini KOMPLE atlar.
+# ============================================================
+workflows:
+  ios-appstore:
+    name: Genix Hotel — iOS App Store
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      app_store_connect: GENIX_ASC_KEY
+
+    environment:
+      groups:
+        - ios_signing            # Codemagic'te bu grupta: CERTIFICATE_PRIVATE_KEY_B64 (secure)
+      vars:
+        XCODE_WORKSPACE: "src/Otel PMS.xcworkspace"
+        XCODE_SCHEME: "Otel PMS"
+        APP_STORE_APPLE_ID: "0000000000"   # TODO: paste the numeric Apple ID after creating the app in App Store Connect
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Ensure Info.plist permission strings (camera / photo / Face ID)
+        script: |
+          set -e
+          # Find the app target Info.plist (excluding Pods)
+          PLIST=$(find . -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -1)
+          echo "Info.plist: $PLIST"
+          pb() { /usr/libexec/PlistBuddy -c "$1" "$PLIST"; }
+          setkey() {
+            pb "Add :$1 string $2" 2>/dev/null || pb "Set :$1 $2"
+          }
+          # Genix Hotel has NO voice assistant -> microphone / speech recognition are NOT requested.
+          setkey NSCameraUsageDescription "Camera access is used to photograph guest ID documents when you choose to attach them."
+          setkey NSPhotoLibraryUsageDescription "Photo library access is used to attach guest ID photos to a reservation."
+          setkey NSPhotoLibraryAddUsageDescription "Photo library access is used to save invoices and reports."
+          setkey NSFaceIDUsageDescription "Face ID is used to unlock the app securely."
+          echo "--- verify ---"
+          pb "Print :NSCameraUsageDescription"; pb "Print :NSPhotoLibraryUsageDescription"; pb "Print :NSFaceIDUsageDescription"
+
+      - name: Pod install (cd into whichever folder holds the Podfile)
+        script: |
+          set -e
+          POD_DIR=$(dirname "$(find . -name Podfile | head -1)")
+          echo "Podfile dir: $POD_DIR"
+          cd "$POD_DIR"
+          pod install --repo-update
+
+      - name: Signing - create cert + profile from our own private key
+        script: |
+          set -eo pipefail
+          echo "B64 length: ${#CERTIFICATE_PRIVATE_KEY_B64}"
+          keychain initialize
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A > /tmp/cert_key.pem
+          echo "PEM size: $(wc -c < /tmp/cert_key.pem) bytes"
+          grep -q "PRIVATE KEY" /tmp/cert_key.pem || { echo "HATA: private key bos/bozuk — Codemagic 'ios_signing' grubu + CERTIFICATE_PRIVATE_KEY_B64 secure degiskenini kontrol et"; exit 1; }
+          app-store-connect fetch-signing-files "com.genixsoft.hotel" --type IOS_APP_STORE --certificate-key @file:/tmp/cert_key.pem --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Auto-increment build number (avoid TestFlight collisions)
+        script: |
+          set +e
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null)
+          if echo "$LATEST" | grep -qE '^[0-9]+$' && [ "$LATEST" -gt 0 ]; then
+            NEW=$(($LATEST + 1))
+          else
+            NEW=$(date +%s)
+          fi
+          echo "New build number: $NEW"
+          # CURRENT_PROJECT_VERSION'i pbxproj'a DOGRUDAN yaz (agvtool kirilgan: bosluklu klasor "Otel PMS" + versioning config)
+          find . -name "project.pbxproj" -not -path "*/Pods/*" -print0 | while IFS= read -r -d '' f; do
+            sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $NEW;/g" "$f"
+            echo "  guncellendi: $f"
+          done
+          echo "--- dogrulama ---"
+          grep -h "CURRENT_PROJECT_VERSION" $(find . -name "project.pbxproj" -not -path "*/Pods/*") | sort -u
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        #
