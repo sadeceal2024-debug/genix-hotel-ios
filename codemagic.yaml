@@ -1,8 +1,7 @@
 # ============================================================
 #  GENIX HOTEL iOS — Codemagic CI/CD (build without a Mac + App Store upload)
-# (see repo README for setup notes)
-# (see repo README for setup notes)
-#  Automatic code signing = ASC API key ile → MacinCloud SSL engelini KOMPLE atlar.
+#  See the repo README for setup notes.
+#  Automatic code signing via the App Store Connect API key: no Mac required.
 # ============================================================
 workflows:
   ios-appstore:
@@ -15,7 +14,7 @@ workflows:
 
     environment:
       groups:
-        - ios_signing            # Codemagic'te bu grupta: CERTIFICATE_PRIVATE_KEY_B64 (secure)
+        - ios_signing            # Codemagic group holding CERTIFICATE_PRIVATE_KEY_B64 (secure)
       vars:
         XCODE_WORKSPACE: "src/Otel PMS.xcworkspace"
         XCODE_SCHEME: "Otel PMS"
