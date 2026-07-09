@@ -92,5 +92,10 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # The IPA is uploaded to App Store Connect either way. Beta-review
+        # submission stays off because App Store Connect rejects it until
+        # TestFlight > Test Information is filled in (feedback email + beta app
+        # review contact), which fails the build after a successful upload.
+        # Flip to true once that page is saved and external testing is wanted.
+        submit_to_testflight: false
         #
