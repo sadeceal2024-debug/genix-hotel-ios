@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 
 @available(iOS 13.0, *)
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -88,6 +89,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // If the Face ID lock is enabled, authenticate.
         BiometricLock.shared.didBecomeActive()
+
+        // Clear the app icon badge whenever the app comes to the foreground.
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0)
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
