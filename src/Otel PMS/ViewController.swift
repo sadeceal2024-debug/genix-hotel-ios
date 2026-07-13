@@ -454,7 +454,7 @@ extension ViewController {
         }
         let body = message.body as? [String: Any] ?? [:]
         let action = (body["action"] as? String) ?? ""
-        let productId = (body["productId"] as? String) ?? "com.genixsoft.hotel.pro.yearly"
+        let productId = (body["productId"] as? String) ?? "com.genixsoft.hotel.pro.annual"
         switch action {
         case "products": GenixIAP.shared.products([productId])
         case "purchase": GenixIAP.shared.purchase(productId)
